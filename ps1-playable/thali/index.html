@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Build Your Thali · steer</title>
+<link rel="stylesheet" href="../shared/steer.css">
+<style>
+  .plate-wrap { position: relative; width: min(66vw, 250px); aspect-ratio: 1; margin: 4px auto 0; }
+  .plate { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #cfcac3 60%, #a9a39b); box-shadow: 0 12px 30px rgba(53,29,29,0.25), inset 0 0 0 6px #bdb7af; }
+  .katori { position: absolute; width: 29%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle at 40% 35%, #f4f2ef, #b8b2aa); box-shadow: inset 0 3px 8px rgba(0,0,0,0.25); display: grid; place-items: center; font-size: 28px; cursor: pointer; }
+  .katori.filled { animation: pop 0.3s ease-out; }
+  .katori small { position: absolute; bottom: -9px; z-index: 2; padding: 1px 6px; border-radius: 999px; background: var(--paper); box-shadow: 0 1px 3px rgba(53,29,29,0.2); font: 600 9.5px var(--sans); color: var(--ink); white-space: nowrap; }
+  .katori.locked { opacity: 0.25; pointer-events: none; }
+  .tray { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 22px; }
+  .food { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 2px; border-radius: 14px; border: 1.5px solid var(--blush); background: var(--paper); font: 600 10.5px var(--sans); color: var(--ink); cursor: pointer; position: relative; }
+  .food span { font-size: 24px; }
+  .food:active { transform: scale(0.94); }
+  .food.off { opacity: 0.3; pointer-events: none; }
+  .food.off::after { content: 'not today'; position: absolute; bottom: 2px; font-size: 8.5px; color: var(--rust); }
+  .timer { height: 6px; border-radius: 999px; background: rgba(53,29,29,0.1); overflow: hidden; }
+  .timer i { display: block; height: 100%; background: var(--rust); width: 100%; }
+  .meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+  .m { font: 600 10.5px var(--sans); color: var(--clay); }
+  .m .bar { height: 7px; margin-top: 4px; border-radius: 999px; background: rgba(53,29,29,0.1); overflow: hidden; }
+  .m .bar i { display: block; height: 100%; width: 0; border-radius: inherit; transition: width 0.25s; }
+  .clock { font: 600 46px var(--serif); color: var(--rust); text-align: center; }
+  .chart { width: 100%; height: 170px; display: block; }
+  .bar.full { height: 14px; border-radius: 999px; background: rgba(53,29,29,0.1); overflow: hidden; }
+  .bar.full i { display: block; height: 100%; width: 100%; background: var(--good); border-radius: inherit; }
+  .stars { font-size: 40px; letter-spacing: 6px; text-align: center; }
+  .stars .off { filter: grayscale(1); opacity: 0.3; }
+  .modal { position: absolute; inset: 0; z-index: 30; background: rgba(53,29,29,0.55); display: flex; align-items: flex-end; padding: 16px; }
+  .sheet { width: 100%; background: var(--cream); border-radius: 22px; padding: 20px; animation: rise 0.3s ease-out both; }
+  .legend { display: flex; gap: 14px; font: 600 10.5px var(--sans); color: var(--clay); margin-top: 4px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+  .lvl { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 16px; border: 1.5px solid var(--blush); background: var(--paper); text-align: left; width: 100%; font: inherit; color: inherit; cursor: pointer; }
+  .lvl:disabled { opacity: 0.4; }
+  .lvl .num { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--maroon); color: var(--cream); font: 600 18px var(--serif); }
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <section class="screen center dark" id="hook">
+    <div class="brand">steer</div>
+    <div class="spacer"></div>
+    <div class="eyebrow">Lunch at 1 pm</div>
+    <h1 class="pop" style="margin-top:10px">Why are you <em>starving</em> by 4?</h1>
+    <p style="margin-top:14px;color:var(--blush)">Build a thali in 20 seconds. Watch your afternoon play out. Beat the 4 pm crash, and earn 3 stars.</p>
+    <div class="spacer"></div>
+    <button class="btn" id="play">Build my thali</button>
+  </section>
+
+  <section class="screen hidden" id="levels">
+    <div class="brand">steer</div>
+    <h2 style="margin-top:22px">Pick your <em>lunch.</em></h2>
+    <p class="muted" style="margin-top:6px">Win a star to unlock the next one.</p>
+    <div class="stack" id="levelList" style="margin-top:18px"></div>
+  </section>
+
+  <section class="screen hidden" id="build">
+    <div class="row"><div class="brand">steer</div><span class="grow"></span><span class="muted" id="count"></span></div>
+    <div class="timer" style="margin-top:10px"><i id="timer"></i></div>
+    <p class="muted small" style="text-align:center;margin-top:8px" id="levelGoal"></p>
+    <div class="plate-wrap"><div class="plate"></div><div id="katoris"></div></div>
+    <div class="meters">
+      <div class="m">Protein<div class="bar"><i id="mProtein" style="background:#3f7d4e"></i></div></div>
+      <div class="m">Fibre<div class="bar"><i id="mFibre" style="background:#3f7d4e"></i></div></div>
+      <div class="m">Fast carbs + sugar<div class="bar"><i id="mFast" style="background:#c04e2a"></i></div></div>
+    </div>
+    <div class="tray" id="tray"></div>
+    <div class="spacer"></div>
+    <button class="btn" id="serve" disabled style="margin-top:12px">Eat it →</button>
+  </section>
+
+  <section class="screen hidden" id="sim">
+    <div class="row"><div class="brand">steer</div><span class="grow"></span><span class="muted">your afternoon</span></div>
+    <div class="clock" id="clock" style="margin-top:14px">1:00 pm</div>
+    <p class="muted" style="text-align:center" id="status">Lunch done. Back to the desk.</p>
+    <div class="card" style="margin-top:14px;padding:12px">
+      <div class="row"><span class="eyebrow">Sugar curve</span><span class="grow"></span><span class="muted small">illustrative</span></div>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="legend"><span><i style="background:#661414"></i>your thali</span><span id="ghostLegend" class="hidden"><i style="background:#3f7d4e"></i>a steer thali</span></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="row" style="margin-bottom:6px"><span class="eyebrow">Fullness</span><span class="grow"></span><span class="muted small" id="fullTxt">100%</span></div>
+      <div class="bar full"><i id="full"></i></div>
+    </div>
+    <div class="spacer"></div>
+  </section>
+
+  <section class="screen hidden" id="result">
+    <div class="brand">steer</div>
+    <div class="spacer" style="max-height:30px"></div>
+    <div class="eyebrow" id="rLevel"></div>
+    <div class="stars pop" id="rStars" style="margin-top:10px"></div>
+    <h2 style="margin-top:10px;text-align:center" id="rTitle"></h2>
+    <p class="muted" style="margin-top:8px;text-align:center" id="rLine"></p>
+    <div class="card" style="margin-top:18px" id="rTip"></div>
+    <p class="disclaimer" style="margin-top:10px">Times come from a simple model that shows the idea. They are not a measurement of your body.</p>
+    <div class="spacer"></div>
+    <div class="stack" style="margin-top:18px">
+      <button class="btn" id="rNext"></button>
+      <button class="btn ghost" id="rRetry">Try this lunch again</button>
+      <button class="btn ghost" id="rEnd" style="border:0">See what it means for me →</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { showEnd, toast } from '../shared/end.js';
+
+const stage = document.getElementById('stage');
+const $ = (id) => document.getElementById(id);
+const screens = ['hook', 'levels', 'build', 'sim', 'result'];
+const show = (id) => screens.forEach((s) => $(s).classList.toggle('hidden', s !== id));
+
+// Per katori, rough and illustrative: fast carbs, sugar, fibre, protein (g).
+const FOODS = [
+  { e: '🫓', n: 'Roti', carb: 15, sugar: 0, fibre: 2.5, protein: 3 },
+  { e: '🍚', n: 'White rice', carb: 28, sugar: 0, fibre: 0.4, protein: 2.5 },
+  { e: '🌾', n: 'Jowar roti', carb: 13, sugar: 0, fibre: 4.5, protein: 3.5 },
+  { e: '🍟', n: 'Aloo fry', carb: 22, sugar: 0, fibre: 2, protein: 2 },
+  { e: '🍛', n: 'Dal', carb: 10, sugar: 0, fibre: 5, protein: 9 },
+  { e: '🫘', n: 'Rajma', carb: 12, sugar: 0, fibre: 7, protein: 8 },
+  { e: '🟤', n: 'Chana', carb: 12, sugar: 0, fibre: 6, protein: 7 },
+  { e: '🧀', n: 'Paneer', carb: 3, sugar: 0, fibre: 1, protein: 13 },
+  { e: '🍗', n: 'Chicken', carb: 2, sugar: 0, fibre: 0.5, protein: 20 },
+  { e: '🥚', n: 'Egg curry', carb: 3, sugar: 0, fibre: 0.5, protein: 12 },
+  { e: '🥬', n: 'Bhindi', carb: 5, sugar: 0, fibre: 4, protein: 2 },
+  { e: '🥗', n: 'Salad', carb: 3, sugar: 0, fibre: 3, protein: 1 },
+  { e: '🥣', n: 'Curd', carb: 4, sugar: 0, fibre: 0, protein: 6 },
+  { e: '🍘', n: 'Papad', carb: 6, sugar: 0, fibre: 1, protein: 2 },
+  { e: '🥛', n: 'Sweet lassi', carb: 4, sugar: 20, fibre: 0, protein: 5 },
+  { e: '🍩', n: 'Gulab jamun', carb: 8, sugar: 24, fibre: 0, protein: 2 },
+];
+const STEER_THALI = ['Dal', 'Paneer', 'Bhindi', 'Salad', 'Jowar roti', 'Curd'];
+
+const LEVELS = [
+  { name: 'Office lunch', sub: '6 katoris. Beat 4 pm.', slots: 6, off: [], stars: [3, 3.6, 4] },
+  { name: 'Small plate', sub: 'Only 4 katoris. Every choice counts.', slots: 4, off: [], stars: [2.75, 3.25, 3.6] },
+  { name: 'Veg canteen', sub: 'No paneer, no chicken, no eggs. Find your protein.', slots: 6, off: ['Paneer', 'Chicken', 'Egg curry'], stars: [3, 3.75, 4.5] },
+];
+const BUILD_SECS = 20;
+const best = LEVELS.map(() => 0);
+
+const by = (n) => FOODS.find((f) => f.n === n);
+let level = 0, plate = [], buildRaf = 0;
+
+function levelsScreen() {
+  show('levels');
+  $('levelList').innerHTML = LEVELS.map((L, i) => {
+    const locked = i > 0 && best[i - 1] === 0;
+    const stars = best[i] ? '⭐'.repeat(best[i]) : '';
+    return `<button class="lvl" data-i="${i}" ${locked ? 'disabled' : ''}><span class="num">${locked ? '🔒' : i + 1}</span><span class="grow"><b style="font-family:var(--serif);font-size:18px;font-weight:600">${L.name}</b><span class="muted small" style="display:block">${L.sub}</span></span><span>${stars}</span></button>`;
+  }).join('');
+  $('levelList').querySelectorAll('.lvl').forEach((b) => (b.onclick = () => startBuild(Number(b.dataset.i))));
+}
+
+function layout() {
+  const L = LEVELS[level];
+  const k = $('katoris');
+  k.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    const d = document.createElement('div');
+    d.className = `katori${i >= L.slots ? ' locked' : ''}`;
+    d.style.left = `${50 + Math.cos(a) * 31}%`;
+    d.style.top = `${50 + Math.sin(a) * 31}%`;
+    d.onclick = () => remove(i);
+    k.appendChild(d);
+  }
+  $('tray').innerHTML = FOODS.map((f, i) => `<button class="food${L.off.includes(f.n) ? ' off' : ''}" data-i="${i}"><span>${f.e}</span>${f.n}</button>`).join('');
+  $('tray').querySelectorAll('.food').forEach((b) => (b.onclick = () => add(FOODS[b.dataset.i])));
+  $('levelGoal').textContent = `Level ${level + 1} · ${L.name}: ${L.sub}`;
+}
+
+function render() {
+  const L = LEVELS[level];
+  [...$('katoris').children].forEach((d, i) => {
+    const f = plate[i];
+    d.classList.toggle('filled', !!f);
+    d.innerHTML = f ? `${f.e}<small>${f.n}</small>` : '';
+  });
+  $('count').textContent = `${plate.length} / ${L.slots} katoris`;
+  $('serve').disabled = plate.length < Math.min(3, L.slots);
+  const sum = (k) => plate.reduce((a, f) => a + f[k], 0);
+  $('mProtein').style.width = `${Math.min(100, (sum('protein') / 40) * 100)}%`;
+  $('mFibre').style.width = `${Math.min(100, (sum('fibre') / 20) * 100)}%`;
+  $('mFast').style.width = `${Math.min(100, ((sum('carb') + sum('sugar') * 2) / 110) * 100)}%`;
+}
+
+function add(f) {
+  const L = LEVELS[level];
+  if (plate.length >= L.slots) return toast(stage, 'Thali is full. Tap a katori to swap.');
+  if (plate.filter((x) => x === f).length >= 2) return toast(stage, `Two ${f.n.toLowerCase()} is plenty`);
+  plate.push(f);
+  if (navigator.vibrate) navigator.vibrate(8);
+  render();
+}
+function remove(i) {
+  if (!plate[i]) return;
+  plate.splice(i, 1);
+  render();
+}
+
+function startBuild(i) {
+  level = i;
+  plate = [];
+  show('build');
+  layout();
+  render();
+  const start = performance.now();
+  cancelAnimationFrame(buildRaf);
+  const tick = (ts) => {
+    const left = Math.max(0, 1 - (ts - start) / (BUILD_SECS * 1000));
+    $('timer').style.width = `${left * 100}%`;
+    if (left <= 0) {
+      const min = Math.min(3, LEVELS[level].slots);
+      if (plate.length < min) {
+        while (plate.length < min) plate.push(by('White rice'));
+        toast(stage, 'Time! The canteen filled the rest with rice');
+      }
+      return serve();
+    }
+    buildRaf = requestAnimationFrame(tick);
+  };
+  buildRaf = requestAnimationFrame(tick);
+}
+
+// Illustrative model: fibre and protein flatten and delay the sugar rise and
+// slow the fall in fullness; a tall spike brings an earlier dip and hunger.
+// A walk after lunch trims the curve; it does not change fullness.
+function model(items, walked = false) {
+  const sum = (k) => items.reduce((a, f) => a + f[k], 0);
+  const carb = sum('carb'), sugar = sum('sugar'), fibre = sum('fibre'), protein = sum('protein');
+  const blunt = Math.min(0.55, fibre * 0.03 + protein * 0.012);
+  const amp = (carb * 1.1 + sugar * 2.2) * (1 - blunt);
+  const peakAt = 0.55 + Math.min(0.5, fibre * 0.03);
+  const dip = Math.max(0, amp - 55) * 0.35;
+  const base = (h) => {
+    const rise = amp * (h / peakAt) * Math.exp(1 - h / peakAt);
+    const fall = dip * Math.exp(-((h - (peakAt + 1.4)) ** 2) / 0.35);
+    return 100 + rise - fall;
+  };
+  const g = (h) => base(h) - (walked && h > 2 ? Math.min(0.25 * (base(h) - 100 + 25), 22) * Math.exp(-((h - 2.4) ** 2) / 0.3) : 0);
+  const decay = Math.max(12, 35 - protein * 0.29 - fibre * 0.43);
+  const full = (h) => {
+    const crash = dip > 0 ? Math.min(30, dip * 0.7) / (1 + Math.exp(-(h - (peakAt + 1.2)) * 4)) : 0;
+    return Math.max(0, 100 - decay * h - crash);
+  };
+  let hungryAt = 5;
+  for (let h = 0; h <= 5; h += 0.01) if (full(h) < 30) { hungryAt = h; break; }
+  return { g, full, hungryAt, amp, protein, fibre, sugar, carb, dip };
+}
+
+const fmt = (h) => {
+  const mins = Math.round(h * 60);
+  const hh = 1 + Math.floor(mins / 60);
+  return `${hh}:${String(mins % 60).padStart(2, '0')} pm`;
+};
+
+function serve() {
+  cancelAnimationFrame(buildRaf);
+  show('sim');
+  $('ghostLegend').classList.add('hidden');
+  let walked = false;
+  let m = model(plate);
+  const ghost = model(STEER_THALI.map(by));
+  const cv = $('chart');
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const r = cv.getBoundingClientRect();
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, h = r.height;
+  const X = (t) => 6 + (t / 5) * (w - 12);
+  const Y = (g) => h - 18 - ((Math.min(230, Math.max(60, g)) - 60) / 170) * (h - 30);
+  const SIM_MS = 8000;
+  let simT = 0, lastTs = 0, paused = false, asked = false, warned = false, showGhost = false;
+
+  const line = (fn, upto, colour, dashed) => {
+    c.beginPath();
+    for (let s = 0; s <= upto; s += 0.02) s ? c.lineTo(X(s), Y(fn(s))) : c.moveTo(X(s), Y(fn(s)));
+    c.strokeStyle = colour;
+    c.lineWidth = dashed ? 2 : 2.5;
+    c.setLineDash(dashed ? [5, 4] : []);
+    c.stroke();
+    c.setLineDash([]);
+  };
+
+  const drawChart = (t) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = 'rgba(63,125,78,0.12)';
+    c.fillRect(0, Y(140), w, Y(80) - Y(140));
+    c.font = '600 10px Inter, sans-serif';
+    c.fillStyle = '#b58777';
+    ['1pm', '2pm', '3pm', '4pm', '5pm', '6pm'].forEach((l, i) => c.fillText(l, Math.min(w - 26, X(i)), h - 4));
+    c.strokeStyle = 'rgba(192,78,42,0.35)';
+    c.setLineDash([4, 4]);
+    c.beginPath(); c.moveTo(X(3), 4); c.lineTo(X(3), h - 16); c.stroke();
+    c.setLineDash([]);
+    if (showGhost) line(ghost.g, 5, '#3f7d4e', true);
+    line(m.g, t, '#661414');
+  };
+
+  const frame = (ts) => {
+    if (!lastTs) lastTs = ts;
+    const dt = ts - lastTs;
+    lastTs = ts;
+    if (!paused) simT = Math.min(5, simT + (dt / SIM_MS) * 5);
+    const t = simT;
+    drawChart(t);
+    const f = m.full(t);
+    $('clock').textContent = fmt(t);
+    $('full').style.width = `${f}%`;
+    $('full').style.background = f < 30 ? '#c04e2a' : f < 55 ? '#b58777' : '#3f7d4e';
+    $('fullTxt').textContent = `${Math.round(f)}%`;
+    $('status').textContent = t < m.hungryAt ? (m.g(t) > 160 ? 'Sugar rush… sleepy at the desk.' : walked && t > 2 && t < 2.6 ? 'Walking around the block. 🚶' : 'Focused. Not thinking about food.') : 'Hungry! Eyeing the vending machine.';
+    if (!asked && t >= 2) {
+      asked = true;
+      paused = true;
+      ask((yes) => {
+        walked = yes;
+        m = model(plate, walked);
+        paused = false;
+      });
+    }
+    if (!warned && t >= m.hungryAt && m.hungryAt < 5) {
+      warned = true;
+      toast(stage, `😩 Hungry at ${fmt(m.hungryAt)}`);
+    }
+    if (t < 5) return requestAnimationFrame(frame);
+    showGhost = true;
+    $('ghostLegend').classList.remove('hidden');
+    drawChart(5);
+    setTimeout(() => result(m, walked), 1600);
+  };
+  requestAnimationFrame(frame);
+}
+
+function ask(done) {
+  const el = document.createElement('div');
+  el.className = 'modal';
+  el.innerHTML = `<div class="sheet"><div class="eyebrow">3:00 pm · post-lunch slump</div><h3 style="margin-top:6px;font-size:22px">Take a 10-minute walk?</h3><p class="muted" style="margin-top:6px">Your colleague is heading out for a chai walk.</p><div class="row" style="margin-top:16px"><button class="btn" data-y>Walk 🚶</button><button class="btn ghost" data-n>Stay at desk</button></div></div>`;
+  stage.appendChild(el);
+  el.querySelector('[data-y]').onclick = () => { el.remove(); done(true); };
+  el.querySelector('[data-n]').onclick = () => { el.remove(); done(false); };
+}
+
+function result(m, walked) {
+  const L = LEVELS[level];
+  const stars = L.stars.filter((s) => m.hungryAt >= s).length;
+  best[level] = Math.max(best[level], stars);
+  show('result');
+  const at = m.hungryAt >= 5 ? 'after 6 pm' : fmt(m.hungryAt);
+  $('rLevel').textContent = `Level ${level + 1} · ${L.name}`;
+  $('rStars').innerHTML = [0, 1, 2].map((i) => `<span class="${i < stars ? '' : 'off'}">⭐</span>`).join('');
+  $('rTitle').innerHTML = stars === 3 ? `Full <em>${m.hungryAt >= 5 ? 'till evening' : 'till ' + at}.</em>` : stars ? `Beat 4 pm. <em>Hungry at ${at}.</em>` : `Hungry at <em>${at}.</em>`;
+  $('rLine').textContent = `${Math.round(m.protein)} g protein · ${Math.round(m.fibre)} g fibre${walked ? ' · walked at 3 pm' : ''}`;
+  const tip = m.protein < 22 ? 'Add a protein katori: dal, chana, rajma, curd or paneer. Protein keeps you fuller for longer.' : m.fibre < 10 ? 'Swap a starch for sabzi, salad or jowar roti. Fibre slows the sugar rise.' : m.sugar > 0 ? 'Skip the sweet with lunch. Sugar on top of carbs means a bigger spike, then a dip.' : 'That\'s a steady thali. Protein and fibre are doing the work.';
+  $('rTip').innerHTML = `<div class="eyebrow">${stars === 3 ? 'Why it worked' : 'For 3 stars'}</div><p style="margin-top:6px">${tip}</p>`;
+  const next = $('rNext');
+  if (level < LEVELS.length - 1 && stars > 0) {
+    next.textContent = `Next: ${LEVELS[level + 1].name} →`;
+    next.onclick = () => startBuild(level + 1);
+  } else if (stars === 0) {
+    next.textContent = 'Try again for a star';
+    next.onclick = () => startBuild(level);
+  } else {
+    next.textContent = 'All lunches done · Pick a level';
+    next.onclick = levelsScreen;
+  }
+  $('rRetry').onclick = () => startBuild(level);
+  $('rEnd').onclick = () => {
+    show(null);
+    const lessons = m.protein < 22 ? ['protein', 'fibre', 'gutGlp1'] : m.fibre < 10 ? ['fibre', 'protein', 'gutGlp1'] : ['protein', 'gutGlp1', walked ? 'walk' : 'fibre'];
+    if (walked && !lessons.includes('walk')) lessons[2] = 'walk';
+    showEnd(stage, {
+      game: 'thali',
+      result: {
+        headline: $('rTitle').innerHTML,
+        line: `${L.name}: ${plate.map((f) => f.n).join(', ')} · hungry ${m.hungryAt >= 5 ? 'after 6 pm' : 'at ' + at} · ${stars}★${walked ? ' · walked' : ''}`,
+        lessons,
+      },
+      onReplay: levelsScreen,
+    });
+  };
+}
+
+$('play').onclick = () => startBuild(0);
+</script>
+</body>
+</html>

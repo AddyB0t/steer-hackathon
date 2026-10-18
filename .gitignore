@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+out/
+*.log
+
+ps1-playable/leads.jsonl
+
+**/papers/*.pdf
+**/review-ui/dist/

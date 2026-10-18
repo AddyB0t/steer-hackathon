@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hunger Tug-of-War · steer</title>
+<link rel="stylesheet" href="../shared/steer.css">
+<style>
+  #arena { background: linear-gradient(#f5ebdf 0 58%, #e9d6c4 58%); touch-action: manipulation; }
+  .teams { position: absolute; left: 0; right: 0; top: 40%; height: 120px; }
+  .team { position: absolute; top: 0; display: flex; gap: 2px; font-size: 40px; transition: transform 0.08s; }
+  .team.you { right: 50%; margin-right: 60px; flex-direction: row-reverse; }
+  .team.hunger { left: 50%; margin-left: 60px; }
+  .team span { display: flex; flex-direction: column; align-items: center; }
+  .team small { font: 600 10px var(--sans); color: var(--ink); margin-top: 2px; white-space: nowrap; }
+  .rope { position: absolute; left: -10%; right: -10%; top: calc(40% + 30px); height: 8px; background: repeating-linear-gradient(90deg, #a0703f 0 10px, #c89a62 10px 20px); border-radius: 6px; transition: transform 0.08s; }
+  .knot { position: absolute; left: 50%; top: -20px; width: 6px; height: 46px; background: var(--rust); transform: translateX(-50%); border-radius: 3px; }
+  .knot::after { content: ''; position: absolute; left: 6px; top: 0; border-left: 22px solid var(--rust); border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+  .line { position: absolute; top: calc(40% - 30px); width: 3px; height: 130px; background: rgba(53,29,29,0.25); }
+  .tapzone { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; display: grid; place-items: center; }
+  .tapbtn { width: 150px; height: 150px; border-radius: 50%; border: 0; background: var(--rust); color: #fff; font: 700 22px var(--sans); box-shadow: 0 10px 0 #8d3519, 0 18px 30px rgba(0,0,0,0.25); }
+  .tapbtn:active { transform: translateY(6px); box-shadow: 0 4px 0 #8d3519, 0 8px 18px rgba(0,0,0,0.25); }
+  .roundtag { position: absolute; top: 60px; left: 0; right: 0; text-align: center; }
+  .timebar { position: absolute; left: 24px; right: 24px; top: 128px; height: 6px; border-radius: 999px; background: rgba(53,29,29,0.1); overflow: hidden; }
+  .timebar i { display: block; height: 100%; background: var(--rust); }
+  .float { position: absolute; font: 700 16px var(--sans); color: var(--rust); pointer-events: none; animation: up 0.6s ease-out forwards; }
+  @keyframes up { to { transform: translateY(-50px); opacity: 0; } }
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <section class="screen center dark" id="hook">
+    <div class="brand">steer</div>
+    <div class="spacer"></div>
+    <div class="eyebrow">Lost weight. Got it back.</div>
+    <h1 class="pop" style="margin-top:10px">Was it really <em>your willpower?</em></h1>
+    <p style="margin-top:14px;color:var(--blush)">Tap as fast as you can and out-pull your hunger. 3 rounds, 10 seconds each.</p>
+    <div class="spacer"></div>
+    <button class="btn" id="play">Pick up the rope</button>
+  </section>
+
+  <section class="screen hidden" id="arena" style="padding:0">
+    <div class="hud"><span class="pill" id="round">Round 1</span><span class="grow"></span><span class="pill" id="taps">0 taps</span></div>
+    <div class="roundtag"><h3 id="roundName">A normal day</h3><p class="muted small" id="roundSub"></p></div>
+    <div class="timebar"><i id="time"></i></div>
+    <div class="line" style="left:22%"></div>
+    <div class="line" style="right:22%"></div>
+    <div class="teams" id="teams">
+      <div class="team you" id="you"></div>
+      <div class="team hunger" id="hunger"></div>
+    </div>
+    <div class="rope" id="rope"><div class="knot"></div></div>
+    <div class="tapzone"><button class="tapbtn" id="tap">PULL</button></div>
+  </section>
+
+  <section class="screen center hidden" id="between">
+    <div class="brand">steer</div>
+    <div class="spacer"></div>
+    <div class="eyebrow" id="bEyebrow"></div>
+    <h2 class="pop" style="margin-top:8px" id="bTitle"></h2>
+    <p style="margin-top:12px" id="bText"></p>
+    <div class="card" style="margin-top:16px" id="bCard"></div>
+    <div class="spacer"></div>
+    <button class="btn" id="bNext"></button>
+  </section>
+</main>
+
+<script type="module">
+import { showEnd, factHtml } from '../shared/end.js';
+
+const stage = document.getElementById('stage');
+const $ = (id) => document.getElementById(id);
+
+const ROUNDS = [
+  {
+    name: 'A normal day', sub: 'You vs everyday hunger',
+    you: [['🙂', 'You'], ['😌', 'Fullness']],
+    hunger: [['😋', 'Hunger']],
+    pull: 0.11, helpers: 0.035, perTap: 0.032,
+  },
+  {
+    name: 'After a diet', sub: 'Same you. Same effort. Different body.',
+    you: [['😤', 'You']],
+    hunger: [['😋', 'Hunger'], ['👹', 'Ghrelin ↑'], ['👹', 'Ghrelin ↑']],
+    pull: 0.3, helpers: 0, perTap: 0.032,
+  },
+  {
+    name: 'With a plan', sub: 'You are not pulling alone any more',
+    you: [['😊', 'You'], ['🍛', 'Protein'], ['😴', 'Sleep'], ['🚶', 'Walks'], ['🩺', 'Doctor']],
+    hunger: [['😋', 'Hunger'], ['👹', 'Ghrelin ↑'], ['👹', 'Ghrelin ↑']],
+    pull: 0.3, helpers: 0.24, perTap: 0.032,
+  },
+];
+const SECS = 10;
+
+let r = 0, knot = 0, taps = 0, results = [], running = false, t0 = 0, raf = 0;
+
+const team = (list) => list.map(([e, n]) => `<span>${e}<small>${n}</small></span>`).join('');
+
+function startRound() {
+  const R = ROUNDS[r];
+  ['hook', 'between'].forEach((id) => $(id).classList.add('hidden'));
+  $('arena').classList.remove('hidden');
+  $('round').textContent = `Round ${r + 1} of 3`;
+  $('roundName').textContent = R.name;
+  $('roundSub').textContent = R.sub;
+  $('you').innerHTML = team(R.you);
+  $('hunger').innerHTML = team(R.hunger);
+  knot = 0; taps = 0; running = true;
+  t0 = performance.now();
+  let last = t0;
+  const loop = (ts) => {
+    const dt = Math.min(0.05, (ts - last) / 1000);
+    last = ts;
+    knot += (R.pull - R.helpers) * dt;
+    draw();
+    const elapsed = (ts - t0) / 1000;
+    $('time').style.width = `${Math.max(0, 1 - elapsed / SECS) * 100}%`;
+    if (knot >= 1 || knot <= -1 || elapsed >= SECS) return endRound(knot < 0);
+    raf = requestAnimationFrame(loop);
+  };
+  raf = requestAnimationFrame(loop);
+}
+
+function draw() {
+  const px = knot * stage.clientWidth * 0.28;
+  $('rope').style.transform = `translateX(${px}px)`;
+  $('teams').style.transform = `translateX(${px}px)`;
+}
+
+function pull(e) {
+  if (!running) return;
+  taps += 1;
+  knot -= ROUNDS[r].perTap;
+  $('taps').textContent = `${taps} taps`;
+  $('you').style.transform = `translateX(-${3 + Math.random() * 4}px)`;
+  setTimeout(() => ($('you').style.transform = ''), 70);
+  const f = document.createElement('div');
+  f.className = 'float';
+  f.textContent = '+pull';
+  const b = stage.getBoundingClientRect();
+  f.style.left = `${(e.clientX || b.left + b.width / 2) - b.left - 20 + (Math.random() * 40 - 20)}px`;
+  f.style.top = `${(e.clientY || b.top + b.height * 0.75) - b.top - 30}px`;
+  stage.appendChild(f);
+  setTimeout(() => f.remove(), 600);
+}
+
+function endRound(won) {
+  running = false;
+  cancelAnimationFrame(raf);
+  results.push({ won, taps });
+  setTimeout(() => between(won), 500);
+}
+
+function between(won) {
+  $('arena').classList.add('hidden');
+  $('between').classList.remove('hidden');
+  const next = $('bNext');
+  if (r === 0) {
+    $('bEyebrow').textContent = won ? 'Round 1 · You won' : 'Round 1 · Close one';
+    $('bTitle').innerHTML = won ? 'Easy, right? <em>Now let\'s diet.</em>' : 'Hunger is strong. <em>Now let\'s diet.</em>';
+    $('bText').textContent = 'You lose 8 kg. Same you, same willpower. But your body has changed.';
+    $('bCard').outerHTML = '<div class="card" id="bCard" style="margin-top:16px"><p>👹 <b>Ghrelin</b> (the hunger hormone) joins the other side.<br>😌 <b>Fullness</b> hormones drop out of yours.</p></div>';
+    next.textContent = 'Round 2: after the diet';
+  } else if (r === 1) {
+    $('bEyebrow').textContent = won ? `Round 2 · You won with ${taps} taps` : `Round 2 · Hunger won, even with ${taps} taps`;
+    $('bTitle').innerHTML = won ? 'You won, but <em>look at the effort.</em>' : 'That wasn\'t <em>weak willpower.</em>';
+    $('bText').textContent = '';
+    $('bCard').outerHTML = `<div id="bCard" style="margin-top:16px">${factHtml('ghrelin')}</div>`;
+    next.textContent = 'Round 3: with a plan';
+  } else {
+    return finish();
+  }
+  next.onclick = () => {
+    r += 1;
+    startRound();
+  };
+}
+
+function finish() {
+  $('between').classList.add('hidden');
+  const [a, b, c] = results;
+  const headline = !b.won && c.won ? 'It was never <em>just willpower.</em>' : c.won ? 'Stronger <em>together.</em>' : 'Hunger is <em>loud.</em>';
+  showEnd(stage, {
+    game: 'tug',
+    result: {
+      headline,
+      line: `Normal day: ${a.won ? 'won' : 'lost'} · After a diet: ${b.won ? 'won' : 'lost'} (${b.taps} taps) · With a plan: ${c.won ? 'won' : 'lost'}`,
+      lessons: ['ghrelin', 'regain', 'protein'],
+    },
+    onReplay: () => {
+      r = 0; results = [];
+      startRound();
+    },
+  });
+}
+
+$('tap').addEventListener('pointerdown', (e) => { e.preventDefault(); pull(e); });
+addEventListener('keydown', (e) => { if (e.code === 'Space') pull({}); });
+$('play').onclick = () => { r = 0; results = []; startRound(); };
+</script>
+</body>
+</html>

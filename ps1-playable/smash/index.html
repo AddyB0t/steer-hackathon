@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Myth Smash · steer</title>
+<link rel="stylesheet" href="../shared/steer.css">
+<style>
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .truth { position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 6; padding: 12px 14px; border-radius: 16px; background: rgba(248,242,235,0.96); color: var(--ink); font: 500 14px/1.4 var(--sans); opacity: 0; transform: translateY(12px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+  .truth.show { opacity: 1; transform: none; }
+  .truth .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 11px var(--sans); letter-spacing: 0.06em; color: #fff; margin-right: 6px; }
+  .lives { font-size: 18px; letter-spacing: 2px; }
+  .streak { position: absolute; top: 56px; left: 0; right: 0; text-align: center; z-index: 5; font: 800 15px var(--sans); color: #f7c56b; text-shadow: 0 2px 8px rgba(0,0,0,0.4); pointer-events: none; transition: transform 0.15s; }
+  .shake { animation: shake 0.35s; }
+  @keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+  .intro { position: absolute; left: 0; right: 0; top: 0; z-index: 4; padding: 22px 22px 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; }
+  .intro.gone { opacity: 0; transform: translateY(-20px); }
+  .doubt { border-radius: 16px; border: 1.5px solid var(--blush); background: var(--paper); overflow: hidden; }
+  .doubt-head { display: flex; gap: 10px; align-items: center; padding: 12px 14px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+  .doubt-body { display: none; padding: 0 10px 10px; }
+  .doubt.open .doubt-body { display: grid; gap: 8px; }
+  .report-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--paper); border: 1px solid var(--blush); text-align: left; width: 100%; font: inherit; color: inherit; cursor: pointer; }
+  .report-item .ico { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 700 13px var(--sans); color: #fff; }
+  .report-item .why { display: none; margin-top: 6px; font-size: 13px; color: var(--ink); }
+  .report-item.open .why { display: block; }
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <canvas id="game"></canvas>
+  <div class="hud hidden" id="hud">
+    <span class="pill" id="score">0</span>
+    <span class="pill lives" id="lives">❤️❤️❤️</span>
+    <span class="grow"></span>
+    <span class="pill" id="time">45s</span>
+  </div>
+  <div class="streak hidden" id="streak"></div>
+  <div class="truth" id="truth"></div>
+
+  <div class="intro" id="intro">
+    <div class="brand" style="color:var(--cream)">steer</div>
+    <div class="eyebrow" style="margin-top:22px;color:#f7c56b">Heard it on the family WhatsApp?</div>
+    <h1 class="pop" style="margin-top:8px;color:var(--cream)">Slash the <em style="color:#f7c56b">myths.</em><br>Spare the facts.</h1>
+    <p style="margin-top:10px;color:var(--blush);font-size:14px">45 seconds · 3 lives · every card backed by a study</p>
+  </div>
+
+  <section class="screen hidden" id="report">
+    <div class="brand">steer</div>
+    <div class="eyebrow" style="margin-top:20px">Your doubt report</div>
+    <h2 style="margin-top:6px" id="reportTitle"></h2>
+    <p class="muted" style="margin-top:6px">The big doubts people have, sorted by how you played. Tap a card to see the study.</p>
+    <div class="stack" id="reportList" style="margin-top:16px"></div>
+    <div class="spacer"></div>
+    <div class="stack" style="margin-top:18px">
+      <button class="btn" id="reportNext">Make it about me →</button>
+      <button class="btn ghost" id="replay">Play again</button>
+      <p class="disclaimer">A game, not a medical test. Real answers need a real doctor.</p>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { showEnd } from '../shared/end.js';
+import { FACTS } from '../shared/facts.js';
+
+const stage = document.getElementById('stage');
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+const $ = (id) => document.getElementById(id);
+
+// d: which of the 5 big doubts a card answers ('daily' = everyday Indian routines).
+const CLAIMS = [
+  { d: 'regain', text: 'Weight comes back because of weak willpower', myth: true, fact: 'ghrelin', truth: 'After a diet, hunger hormones rise and fullness hormones fall. That is biology, not willpower.' },
+  { d: 'diabetes', text: 'GLP-1 medicines are only for diabetics', myth: true, fact: 'notOnlyDiabetes', truth: 'Large trials tested them in adults with obesity who did not have diabetes.' },
+  { d: 'muscle', text: 'Losing weight means losing only fat', myth: true, fact: 'leanMass', truth: 'Body scans show lean mass, including muscle, can go too. It needs protecting.' },
+  { d: 'safety', text: 'Side effects are usually severe', myth: true, fact: 'sideEffects', truth: 'In a large trial, most side effects were tummy-related and mild to moderate.' },
+  { d: 'forMe', text: 'BMI cut-offs are the same for every body', myth: true, fact: 'asianBmi', truth: 'A WHO expert group flagged lower BMI action points for Asian populations, including Indians.' },
+  { d: 'diabetes', text: 'Your gut has nothing to do with feeling full', myth: true, fact: 'gutGlp1', truth: 'Your gut releases GLP-1 after meals, one of your body\'s fullness signals.' },
+  { d: 'daily', text: 'Crunches melt tummy fat', myth: true, fact: 'spotReduce', truth: 'In a trial, ab exercises did not cut belly fat. Fat loss happens across the whole body.' },
+  { d: 'daily', text: 'Late nights have nothing to do with hunger', myth: true, fact: 'sleep', truth: 'Short sleep lowered leptin, raised ghrelin and made people hungrier.' },
+  { d: 'daily', text: 'A glass of fruit juice = eating the fruit', myth: true, fact: 'juice', truth: 'Whole fruit was linked to lower diabetes risk; juice was linked to higher risk.' },
+  { d: 'diabetes', text: 'Your gut makes its own GLP-1', myth: false, fact: 'gutGlp1', truth: 'GLP-1 medicines copy a hormone your gut already makes.' },
+  { d: 'regain', text: 'Weight can come back after stopping the medicine', myth: false, fact: 'regain', truth: 'In a trial, about two-thirds came back within a year of stopping. Plan the exit.' },
+  { d: 'forMe', text: 'Indians can face health risk at a lower BMI', myth: false, fact: 'asianBmi', truth: 'A WHO expert group flagged lower BMI action points for Asian populations.' },
+  { d: 'safety', text: 'Common side effects are mostly tummy-related', myth: false, fact: 'sideEffects', truth: 'Nausea and tummy upsets were most common, mostly mild and easing over time.' },
+  { d: 'muscle', text: 'Strength training helps protect muscle', myth: false, fact: 'strength', truth: 'Resistance exercise during weight loss helps keep lean muscle.' },
+  { d: 'muscle', text: 'Dal, paneer and curd keep you fuller', myth: false, fact: 'protein', truth: 'Higher-protein meals tend to increase fullness.' },
+  { d: 'daily', text: 'Sabzi before rice can soften the sugar rise', myth: false, fact: 'foodOrder', truth: 'Veggies and protein first led to a lower sugar rise in a study.' },
+  { d: 'daily', text: 'A short walk after meals helps your sugar', myth: false, fact: 'walk', truth: 'Light walks that break up sitting lowered blood sugar after meals.' },
+];
+const DOUBT = {
+  safety: 'Is it safe?',
+  muscle: 'Will I lose muscle?',
+  regain: 'Will the weight come back?',
+  diabetes: 'Is it only for diabetics?',
+  forMe: 'Is it even for me?',
+  daily: 'Everyday myths',
+};
+const DURATION = 45;
+const MYTH_COUNT = CLAIMS.filter((c) => c.myth).length;
+
+let W, H, dpr;
+function resize() {
+  dpr = Math.min(2, devicePixelRatio || 1);
+  const r = stage.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize);
+
+let S;
+function reset() {
+  // The first card is a myth that hovers until swiped: the first swipe is the tutorial and starts the clock.
+  const first = CLAIMS.find((c) => c.fact === 'spotReduce');
+  const rest = CLAIMS.filter((c) => c !== first).sort(() => Math.random() - 0.5);
+  S = {
+    t: 0, deck: [...rest, ...CLAIMS.slice().sort(() => Math.random() - 0.5)], cards: [], halves: [], parts: [], trail: [], flashes: [],
+    score: 0, lives: 3, streak: 0, best: 0, nextIn: 0, launched: 0, seen: new Map(), over: false, intro: true, clock: 0,
+  };
+  S.cards.push({ c: first, x: W / 2, y: H * 0.6, vx: 0, vy: 0, rot: -0.06, vr: 0, done: false, hover: true });
+  S.seen.set(first.text, { c: first, status: 'unseen' });
+}
+
+const CW = () => Math.min(210, W * 0.56);
+const CH = 96;
+
+function launch() {
+  const c = S.deck.shift();
+  if (!c) return;
+  S.launched += 1;
+  const x = W * (0.22 + Math.random() * 0.56);
+  const v = 0.92 + Math.random() * 0.14 + Math.min(0.12, S.t / 300);
+  S.cards.push({ c, x, y: H + CH, vx: (W / 2 - x) * 0.55 + (Math.random() * 50 - 25), vy: -H * v, rot: Math.random() * 0.3 - 0.15, vr: Math.random() * 0.5 - 0.25, done: false });
+  if (!S.seen.has(c.text)) S.seen.set(c.text, { c, status: 'unseen' });
+}
+
+function wrap(text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+  }
+  lines.push(line);
+  return lines;
+}
+
+function cardPath(w, h) {
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, 16);
+}
+
+function drawCard(x, y, rot, c, clip, glow) {
+  const w = CW(), h = CH;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  if (clip) { ctx.beginPath(); ctx.rect(-w, clip === 'top' ? -h : 0, w * 2, h); ctx.clip(); }
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = '#f8f2eb';
+  cardPath(w, h);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = glow ? '#f7c56b' : '#e6cbbd';
+  ctx.lineWidth = glow ? 3 : 2;
+  ctx.stroke();
+  ctx.fillStyle = '#b58777';
+  ctx.font = '700 9px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('MYTH OR FACT?', -w / 2 + 12, -h / 2 + 15);
+  ctx.fillStyle = '#351d1d';
+  ctx.font = '700 15px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = wrap(c.text, w - 28);
+  lines.forEach((l, i) => ctx.fillText(l, 0, 6 + (i - (lines.length - 1) / 2) * 19));
+  ctx.restore();
+}
+
+function inside(card, px, py) {
+  const dx = px - card.x, dy = py - card.y;
+  const cos = Math.cos(-card.rot), sin = Math.sin(-card.rot);
+  const lx = dx * cos - dy * sin, ly = dx * sin + dy * cos;
+  return Math.abs(lx) < CW() / 2 && Math.abs(ly) < CH / 2;
+}
+
+function burst(x, y, colours, n = 18) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 260;
+    S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 0.6 + Math.random() * 0.4, size: 3 + Math.random() * 5, col: colours[i % colours.length] });
+  }
+}
+
+let strokeHits = 0;
+function slash(card, angle) {
+  card.done = true;
+  if (card.hover) {
+    S.intro = false;
+    S.nextIn = 0.9;
+    $('intro').classList.add('gone');
+    ['hud', 'streak'].forEach((id) => $(id).classList.remove('hidden'));
+  }
+  const entry = S.seen.get(card.c.text);
+  if (card.c.myth) {
+    strokeHits += 1;
+    S.streak += 1;
+    S.best = Math.max(S.best, S.streak);
+    const mult = Math.min(3, 1 + Math.floor(S.streak / 3));
+    const combo = strokeHits > 1 ? 5 * strokeHits : 0;
+    const pts = 10 * mult + combo;
+    S.score += pts;
+    entry.status = 'slashed';
+    S.flashes.push({ x: card.x, y: card.y, text: combo ? `COMBO +${pts}` : `+${pts}`, good: true, life: 1 });
+    burst(card.x, card.y, ['#f7c56b', '#f5ebdf', '#c04e2a']);
+    if (navigator.vibrate) navigator.vibrate(18);
+  } else {
+    S.lives -= 1;
+    S.streak = 0;
+    if (entry.status !== 'slashed') entry.status = 'oops';
+    S.flashes.push({ x: card.x, y: card.y, text: 'THAT WAS TRUE!', good: false, life: 1.1 });
+    burst(card.x, card.y, ['#3f7d4e', '#f5ebdf'], 12);
+    stage.classList.remove('shake');
+    void stage.offsetWidth;
+    stage.classList.add('shake');
+    if (navigator.vibrate) navigator.vibrate([40, 50, 40]);
+  }
+  const off = angle + Math.PI / 2;
+  ['top', 'bottom'].forEach((part, i) =>
+    S.halves.push({ c: card.c, part, x: card.x, y: card.y, vx: card.vx * 0.3 + Math.cos(off) * (i ? 110 : -110), vy: card.vy * 0.15 - 60 + Math.sin(off) * (i ? 60 : -60), rot: card.rot, vr: i ? 2.4 : -2.4, life: 1.3 }),
+  );
+  showTruth(card.c);
+  hud();
+}
+
+let truthT = 0;
+function showTruth(c) {
+  const el = $('truth');
+  el.innerHTML = `<span class="tag" style="background:${c.myth ? '#c04e2a' : '#3f7d4e'}">${c.myth ? 'MYTH' : 'FACT'}</span>${c.truth}`;
+  el.classList.add('show');
+  clearTimeout(truthT);
+  truthT = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+function hud() {
+  $('score').textContent = `${S.score} pts`;
+  $('lives').textContent = '❤️'.repeat(S.lives) + '🤍'.repeat(3 - S.lives);
+  $('time').textContent = `${Math.max(0, Math.ceil(DURATION - S.t))}s`;
+  const mult = Math.min(3, 1 + Math.floor(S.streak / 3));
+  const el = $('streak');
+  el.textContent = S.streak >= 2 ? `🔥 ${S.streak} myth streak${mult > 1 ? ` · x${mult} points` : ''}` : S.t < 6 ? 'Slash myths · spare facts ❤️' : '';
+}
+
+const G = () => H * 1.0;
+function step(dt) {
+  S.clock += dt;
+  if (!S.intro) {
+    S.t += dt;
+    S.nextIn -= dt;
+    if (S.nextIn <= 0) {
+      launch();
+      if (S.launched > 3 && Math.random() < Math.min(0.5, S.t / 50)) launch();
+      S.nextIn = S.launched === 1 ? 2.0 : Math.max(1.05, 2.0 - S.t * 0.022);
+    }
+  }
+  for (const k of S.cards) {
+    if (k.hover) {
+      k.y = H * 0.6 + Math.sin(S.clock * 2.6) * 8;
+      k.rot = -0.06 + Math.sin(S.clock * 1.3) * 0.03;
+      continue;
+    }
+    k.vy += G() * dt;
+    k.x += k.vx * dt;
+    k.y += k.vy * dt;
+    k.rot += k.vr * dt;
+    if (!k.done && k.vy > 0 && k.y > H + CH) {
+      k.done = true;
+      const entry = S.seen.get(k.c.text);
+      if (k.c.myth) {
+        if (entry.status === 'unseen') entry.status = 'missed';
+        S.streak = 0;
+        S.flashes.push({ x: Math.min(W - 70, Math.max(70, k.x)), y: H - 70, text: 'missed a myth', good: false, life: 0.9 });
+      } else if (entry.status === 'unseen') entry.status = 'spared';
+    }
+  }
+  S.cards = S.cards.filter((k) => !k.done);
+  for (const h of S.halves) { h.vy += G() * dt; h.x += h.vx * dt; h.y += h.vy * dt; h.rot += h.vr * dt; h.life -= dt; }
+  S.halves = S.halves.filter((h) => h.life > 0);
+  for (const p of S.parts) { p.vy += 500 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  S.parts = S.parts.filter((p) => p.life > 0);
+  for (const f of S.flashes) { f.life -= dt; f.y -= 40 * dt; }
+  S.flashes = S.flashes.filter((f) => f.life > 0);
+  const now = performance.now();
+  S.trail = S.trail.filter((p) => now - p.t < 170);
+  hud();
+  if (S.t >= DURATION || S.lives <= 0 || (!S.deck.length && !S.cards.length)) finish();
+}
+
+function draw() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#6e1717');
+  g.addColorStop(1, '#360a0a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(245,235,223,0.05)';
+  ctx.font = '120px Gelasio, Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('steer', W / 2, H * 0.56);
+  if (!S) return;
+  const hover = S.cards.find((k) => k.hover && !k.done);
+  for (const k of S.cards) drawCard(k.x, k.y, k.rot, k.c, null, k.hover);
+  if (hover) {
+    const p = (S.clock % 1.6) / 1.6;
+    const sweep = Math.min(1, p / 0.6);
+    const hx = hover.x - CW() / 2 - 10 + sweep * (CW() + 20);
+    const hy = hover.y + 34 - sweep * 30;
+    if (p < 0.75) {
+      ctx.strokeStyle = 'rgba(247,197,107,0.85)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(hover.x - CW() / 2 - 10, hover.y + 34);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+    }
+    ctx.font = '34px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('👆', hx + 6, hy + 34);
+    ctx.fillStyle = '#f7c56b';
+    ctx.font = '700 17px Inter, sans-serif';
+    ctx.fillText('Myth? Swipe across it!', W / 2, hover.y + CH / 2 + 84);
+  }
+  for (const h of S.halves) {
+    ctx.globalAlpha = Math.min(1, h.life * 1.4);
+    drawCard(h.x, h.y, h.rot, h.c, h.part);
+    if (h.part === 'top') {
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.rotate(h.rot);
+      ctx.font = '800 20px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = h.c.myth ? '#f7c56b' : '#8fd19e';
+      ctx.fillText(h.c.myth ? '✕ MYTH' : '✓ FACT', 0, -CH / 2 - 16);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+  for (const p of S.parts) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.col;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  if (S.trail.length > 1) {
+    ctx.lineCap = 'round';
+    for (let i = 1; i < S.trail.length; i++) {
+      const a = S.trail[i - 1], b = S.trail[i];
+      const k = i / S.trail.length;
+      ctx.strokeStyle = `rgba(255,236,190,${k})`;
+      ctx.lineWidth = 2 + k * 9;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  for (const f of S.flashes) {
+    ctx.globalAlpha = Math.min(1, f.life * 2);
+    ctx.font = `800 ${f.text.length > 8 ? 18 : 24}px Inter, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = f.good ? '#f7c56b' : '#ffb3a6';
+    ctx.fillText(f.text, f.x, f.y - 64);
+    ctx.globalAlpha = 1;
+  }
+}
+
+let last = 0, raf = 0, down = false;
+function loop(ts) {
+  const dt = Math.min(0.05, (ts - last) / 1000 || 0);
+  last = ts;
+  if (!S.over) step(dt);
+  draw();
+  if (!S.over) raf = requestAnimationFrame(loop);
+}
+
+function point(e) {
+  const r = stage.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() };
+}
+cv.addEventListener('pointerdown', (e) => {
+  down = true;
+  strokeHits = 0;
+  if (S) S.trail.push(point(e));
+});
+addEventListener('pointerup', () => { down = false; strokeHits = 0; });
+cv.addEventListener('pointermove', (e) => {
+  if (!down || !S || S.over) return;
+  const p = point(e);
+  const prev = S.trail[S.trail.length - 1];
+  S.trail.push(p);
+  if (!prev || Math.hypot(p.x - prev.x, p.y - prev.y) < 4) return;
+  const angle = Math.atan2(p.y - prev.y, p.x - prev.x);
+  for (const k of S.cards) {
+    if (k.done) continue;
+    for (let s = 0; s <= 1; s += 0.2) {
+      if (inside(k, prev.x + (p.x - prev.x) * s, prev.y + (p.y - prev.y) * s)) { slash(k, angle); break; }
+    }
+  }
+});
+
+function start() {
+  $('report').classList.add('hidden');
+  $('intro').classList.remove('gone');
+  ['hud', 'streak'].forEach((id) => $(id).classList.add('hidden'));
+  resize();
+  reset();
+  hud();
+  last = performance.now();
+  raf = requestAnimationFrame(loop);
+}
+
+const ICON = {
+  slashed: ['✓', '#3f7d4e', 'You slashed this myth'],
+  spared: ['✓', '#3f7d4e', 'You spared this fact'],
+  oops: ['✕', '#c04e2a', 'This was true, and you slashed it'],
+  missed: ['!', '#b58777', 'This myth got past you'],
+};
+
+function finish() {
+  S.over = true;
+  cancelAnimationFrame(raf);
+  ['hud', 'streak'].forEach((id) => $(id).classList.add('hidden'));
+  $('truth').classList.remove('show');
+  const entries = [...S.seen.values()].filter((e) => e.status !== 'unseen');
+  const slashedMyths = entries.filter((e) => e.c.myth && e.status === 'slashed').length;
+  const oops = entries.filter((e) => e.status === 'oops');
+  const missed = entries.filter((e) => e.status === 'missed');
+  const wrong = [...oops, ...missed];
+  const order = { oops: 0, missed: 1, slashed: 2, spared: 3 };
+  const item = (e) => {
+    const [ico, col, label] = ICON[e.status];
+    const f = FACTS[e.c.fact];
+    return `<button class="report-item"><span class="ico" style="background:${col}">${ico}</span><span><b style="font-family:var(--serif);font-weight:600">${e.c.text}</b><span class="muted small" style="display:block">${e.c.myth ? 'Myth' : 'Fact'} · ${label}</span><span class="why">${f.text}<a class="source" href="${f.url}" target="_blank" rel="noopener">${f.source}</a></span></span></button>`;
+  };
+  const groups = Object.keys(DOUBT)
+    .map((d) => ({ d, list: entries.filter((e) => e.c.d === d).sort((a, b) => order[a.status] - order[b.status]) }))
+    .filter((g) => g.list.length)
+    .map((g) => ({ ...g, bad: g.list.filter((e) => e.status === 'oops' || e.status === 'missed').length }));
+  const big = groups.filter((g) => g.d !== 'daily');
+  const cleared = big.filter((g) => !g.bad).length;
+  const toCheck = big.filter((g) => g.bad).map((g) => g.d);
+
+  $('reportTitle').innerHTML = S.lives <= 0
+    ? `Out of lives. <em>${cleared} of ${big.length} doubts cleared.</em>`
+    : `${S.score} pts. <em>${cleared} of ${big.length} doubts cleared.</em>`;
+  $('reportList').innerHTML = groups
+    .map((g) => {
+      const ok = !g.bad;
+      const tag = ok ? `<span class="pill" style="background:#3f7d4e;color:#fff">Cleared</span>` : `<span class="pill" style="background:#c04e2a;color:#fff">Worth a chat</span>`;
+      return `<div class="doubt${ok ? '' : ' open'}"><button class="doubt-head"><span class="grow"><b style="font-family:var(--serif);font-weight:700;font-size:16px">${DOUBT[g.d]}</b><span class="muted small" style="display:block">${g.list.length - g.bad} of ${g.list.length} right</span></span>${tag}</button><div class="doubt-body">${g.list.map(item).join('')}</div></div>`;
+    })
+    .join('');
+  $('reportList').querySelectorAll('.doubt-head').forEach((b) => (b.onclick = () => b.parentElement.classList.toggle('open')));
+  $('reportList').querySelectorAll('.report-item').forEach((b) => (b.onclick = () => b.classList.toggle('open')));
+  $('report').classList.remove('hidden');
+  $('report').scrollTop = 0;
+
+  $('reportNext').textContent = toCheck.length ? 'Get answers for my doubts →' : 'Make it about me →';
+  $('reportNext').onclick = () => {
+    $('report').classList.add('hidden');
+    showEnd(stage, {
+      game: 'smash',
+      skipLessons: true,
+      doubts: toCheck,
+      extra: { wrong: wrong.map((e) => `${e.c.myth ? 'believed' : 'doubted'} "${e.c.text}"`) },
+      result: {
+        headline: '',
+        line: `${S.score} pts · ${slashedMyths} of ${MYTH_COUNT} myths slashed · ${cleared} of ${big.length} doubts cleared`,
+        lessons: [],
+      },
+      onReplay: start,
+    });
+  };
+}
+
+$('replay').onclick = start;
+start();
+</script>
+</body>
+</html>

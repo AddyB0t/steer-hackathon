@@ -1,0 +1,8 @@
+{
+  "name": "ps1-playable",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.js"
+  }
+}

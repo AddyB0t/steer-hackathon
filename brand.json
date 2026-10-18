@@ -1,0 +1,45 @@
+{
+  "wordmark": "steer",
+  "signoff": "steerclub.com",
+  "colors": {
+    "cream": "#F5EBDF",
+    "rust": "#C04E2A",
+    "maroon": "#661414",
+    "ink": "#351D1D",
+    "clay": "#B58777",
+    "blush": "#E6CBBD",
+    "softPaper": "#F8F2EB"
+  },
+  "type": {
+    "headline": "serif, mixes upright and italic in one headline",
+    "body": "clean simple sans-serif",
+    "accent": "handwritten, for founder field notes only",
+    "case": "sentence case or lowercase, never all caps"
+  },
+  "voice": {
+    "register": "confident, direct, reassuring; clinical but warm; short punchy fragments",
+    "pillars": [
+      "Doctor-led. Real doctors make the medical calls.",
+      "Safety first. Screening and blood tests come before any medicine.",
+      "Personal. Plans built on your labs, history and goals.",
+      "Built for India. Local meals, culture and appetite.",
+      "A planned exit. Habits that last after the medicine stops."
+    ],
+    "sampleLines": [
+      "Lose well. Live well.",
+      "Clinical weight loss, doctor-led.",
+      "Metabolic care, calibrated for Indian biology.",
+      "Before you start, hear it from a doctor, not a reel.",
+      "Stop Googling. Ask a doctor.",
+      "No obligation. If it isn't right for you, they'll say so."
+    ]
+  },
+  "hardBans": [
+    "no before/after bodies",
+    "no promoting a specific prescription drug or brand",
+    "no weight-loss promises, no kilos, no timelines",
+    "no fear, shame or body-shaming",
+    "no claim without a traceable source"
+  ],
+  "audience": "Adults in India who have tried diets, have heard of GLP-1 medicines, and are curious but sceptical. Worried about safety, muscle loss, side effects and regaining weight."
+}
