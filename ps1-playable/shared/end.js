@@ -44,6 +44,11 @@ function screen(stage, html, cls = '') {
 export function showEnd(stage, { game, result, onReplay, doubts: preset = [], skipLessons = false, extra = {} }) {
   const src = new URLSearchParams(location.search).get('src') || 'website';
   const lead = { game, src, result: result.line, doubts: [...preset], food: null, ...extra };
+  try {
+    const played = JSON.parse(localStorage.getItem('steer-played') || '{}');
+    played[game] = { line: result.line, at: Date.now() };
+    localStorage.setItem('steer-played', JSON.stringify(played));
+  } catch { /* private mode: the hub just won't show ticks */ }
 
   const lessons = () => {
     const el = screen(stage, `

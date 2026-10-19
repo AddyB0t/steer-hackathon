@@ -6,29 +6,125 @@
 <title>steer · play</title>
 <link rel="stylesheet" href="shared/steer.css">
 <style>
-  .game { display: flex; gap: 14px; align-items: center; padding: 16px; border-radius: 20px; background: var(--paper); border: 1px solid var(--blush); text-decoration: none; color: var(--ink); transition: transform 0.15s; }
-  .game:active { transform: scale(0.98); }
-  .game .ico { width: 64px; height: 64px; flex-shrink: 0; border-radius: 16px; display: grid; place-items: center; font-size: 34px; background: var(--maroon); }
-  .game h3 { font-size: 20px; }
-  .game p { font-size: 13.5px; color: var(--clay); margin-top: 2px; }
+  body { display: block; overflow-y: auto; background: #1d0a0a; }
+  .dash { max-width: 1080px; margin: 0 auto; padding: 26px 20px 40px; color: var(--cream); }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .top .brand { color: var(--cream); font-size: 26px; }
+  .progress { margin-left: auto; display: flex; align-items: center; gap: 8px; font: 600 13px var(--sans); color: var(--blush); }
+  .progress i { width: 10px; height: 10px; border-radius: 50%; background: rgba(247,197,107,0.2); border: 1px solid rgba(247,197,107,0.5); }
+  .progress i.on { background: #f7c56b; }
+  h1.title { margin-top: 26px; color: var(--cream); font-size: clamp(30px, 6vw, 48px); line-height: 1.05; }
+  h1.title em { color: #f7c56b; }
+  .lede { margin-top: 10px; color: var(--blush); font-size: 15px; max-width: 560px; }
+
+  .hero { margin-top: 24px; display: grid; grid-template-columns: 1.1fr 1fr; border-radius: 24px; overflow: hidden; background: linear-gradient(135deg, #5a1916, #2a0d0b); border: 1px solid rgba(247,197,107,0.35); text-decoration: none; color: inherit; transition: transform 0.15s, box-shadow 0.15s; }
+  .hero:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,0.45); }
+  .hero .shot { position: relative; min-height: 260px; background: url(shared/range-preview.jpg) center 40% / cover; }
+  .hero .shot::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(42,13,11,0) 60%, #3a1110); }
+  .hero .body { padding: 26px 26px 24px; display: flex; flex-direction: column; gap: 10px; }
+  .hero h2 { color: var(--cream); font-size: 32px; }
+  .hero p { color: var(--blush); font-size: 14.5px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font: 700 11px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: rgba(247,197,107,0.15); color: #f7c56b; border: 1px solid rgba(247,197,107,0.35); }
+  .tag.hot { background: #c04e2a; color: #fff; border-color: #c04e2a; }
+  .play { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 999px; background: #f7c56b; color: #1d0a0a; font: 800 15px var(--sans); }
+  .done { font: 600 12.5px var(--sans); color: #8fd19e; }
+
+  .filters { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .filters span { font: 700 12px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--blush); margin-right: 4px; }
+  .chip { font: 600 13.5px var(--sans); padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(247,197,107,0.35); background: transparent; color: var(--cream); cursor: pointer; }
+  .chip.on { background: var(--cream); color: #1d0a0a; border-color: var(--cream); }
+
+  .grid { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 20px; background: var(--paper); color: var(--ink); text-decoration: none; border: 1px solid var(--blush); transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
+  .card.dim, .hero.dim { opacity: 0.35; }
+  .card .ico { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 30px; background: var(--maroon); }
+  .card h3 { font-size: 20px; }
+  .card p { font-size: 13.5px; color: var(--clay); }
+  .card .learn { font-size: 13px; color: var(--ink); padding-top: 10px; border-top: 1px dashed var(--blush); }
+  .card .learn b { color: var(--rust); }
+  .card .tag { background: rgba(192,78,42,0.08); color: var(--rust); border-color: rgba(192,78,42,0.25); }
+  .card .tick { position: absolute; top: 14px; right: 14px; font: 700 11px var(--sans); color: #fff; background: #3f7d4e; padding: 4px 9px; border-radius: 999px; }
+  .card .last { font-size: 12px; color: #3f7d4e; }
+  .foot { margin-top: 30px; text-align: center; color: var(--blush); font-size: 12.5px; }
+  .foot a { color: #f7c56b; }
+  @media (max-width: 720px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero .shot { min-height: 210px; }
+    .hero .shot::after { background: linear-gradient(180deg, rgba(42,13,11,0) 55%, #3a1110); }
+    .hero h2 { font-size: 26px; }
+    .progress b { display: none; }
+  }
 </style>
 </head>
 <body>
-<main class="stage">
-  <section class="screen" style="touch-action:pan-y">
+<main class="dash">
+  <div class="top">
     <div class="brand">steer</div>
-    <h1 style="margin-top:22px">Play for <em>30 seconds.</em> Leave smarter.</h1>
-    <p class="muted" style="margin-top:10px">Five tiny games about hunger, sugar and the myths around weight loss. Every fact is cited.</p>
-    <div class="stack" style="margin-top:22px">
-      <a class="game rise" href="range/"><span class="ico">🎯</span><div><h3>Myth Range <span class="pill" style="background:var(--rust);color:#fff;font-size:10px;vertical-align:middle">3D</span></h3><p>Walk the yard. Shoot the myths. Spare the facts.</p></div></a>
-      <a class="game rise" href="buffet/"><span class="ico">💃</span><div><h3>Shaadi Buffet Run</h3><p>Survive the wedding buffet without a sugar crash.</p></div></a>
-      <a class="game rise" style="animation-delay:80ms" href="thali/"><span class="ico">🍛</span><div><h3>Build Your Thali</h3><p>Why are you starving by 4? Beat the crash.</p></div></a>
-      <a class="game rise" style="animation-delay:160ms" href="tug/"><span class="ico">🪢</span><div><h3>Hunger Tug-of-War</h3><p>Was it really your willpower?</p></div></a>
-      <a class="game rise" style="animation-delay:240ms" href="smash/"><span class="ico">⚔️</span><div><h3>Myth Smash</h3><p>Slash the myths. Spare the facts.</p></div></a>
+    <div class="progress" id="progress"></div>
+  </div>
+  <h1 class="title">Pick a game. <em>Leave smarter.</em></h1>
+  <p class="lede">Five short games about hunger, sugar and the myths around weight loss. Each one takes a minute or two, and every fact in it links to a study.</p>
+
+  <a class="hero rise" id="hero" href="range/">
+    <div class="shot" role="img" aria-label="Screenshot of Myth Range: a first-person view of a training yard with a myth board"></div>
+    <div class="body">
+      <div class="tags"><span class="tag hot">New · 3D</span><span class="tag">90 sec</span><span class="tag">Phone + desktop</span></div>
+      <h2>Myth Range</h2>
+      <p>A first-person shooter on a full map. Walk the yard, find the boards on your radar, shoot the myths and leave the facts standing. Your misses become a doubt report you can take to a doctor.</p>
+      <div class="done" id="heroDone"></div>
+      <span class="play">▶ Play now</span>
     </div>
-    <div class="spacer"></div>
-    <p class="disclaimer" style="margin-top:20px">Games, not medical tests. steerclub.com</p>
-  </section>
+  </a>
+
+  <div class="filters" id="filters"><span>What's on your mind?</span></div>
+  <div class="grid" id="grid"></div>
+
+  <p class="foot">Games, not medical tests. Real answers need a real doctor. <a href="https://steerclub.com" target="_blank" rel="noopener">steerclub.com</a></p>
 </main>
+
+<script type="module">
+const GAMES = [
+  { id: 'range', href: 'range/', ico: '🎯', name: 'Myth Range', tags: ['3D', '90 sec'], line: 'Walk the yard. Shoot the myths. Spare the facts.', learn: 'Which GLP-1 and weight-loss myths you still believe.', topics: ['myths', 'meds'] },
+  { id: 'smash', href: 'smash/', ico: '⚔️', name: 'Myth Smash', tags: ['Swipe', '45 sec'], line: 'Slash the myths. Spare the facts.', learn: 'The same myth deck, made for a quick thumb game.', topics: ['myths', 'meds'] },
+  { id: 'buffet', href: 'buffet/', ico: '💃', name: 'Shaadi Buffet Run', tags: ['Tap', '40 sec'], line: 'Survive the wedding buffet without a sugar crash.', learn: 'How food order, fibre and a short walk soften a sugar spike.', topics: ['sugar'] },
+  { id: 'thali', href: 'thali/', ico: '🍛', name: 'Build Your Thali', tags: ['Build', '3 levels'], line: 'Why are you starving by 4? Beat the crash.', learn: 'How protein and fibre keep you full through the afternoon.', topics: ['hunger', 'sugar'] },
+  { id: 'tug', href: 'tug/', ico: '🪢', name: 'Hunger Tug-of-War', tags: ['Tap fast', '30 sec'], line: 'Was it really your willpower?', learn: 'How hunger hormones push back after a diet, and why weight returns.', topics: ['hunger', 'meds'] },
+];
+const FILTERS = [['all', 'Show all'], ['myths', 'Myths I hear'], ['hunger', 'Always hungry'], ['sugar', 'Sugar crashes'], ['meds', 'GLP-1 medicines']];
+
+let played = {};
+try { played = JSON.parse(localStorage.getItem('steer-played') || '{}'); } catch { /* no storage */ }
+const src = new URLSearchParams(location.search).get('src');
+const link = (href) => (src ? `${href}?src=${encodeURIComponent(src)}` : href);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+const count = GAMES.filter((g) => played[g.id]).length;
+document.getElementById('progress').innerHTML = `<b>${count} of ${GAMES.length} played</b>${GAMES.map((g) => `<i class="${played[g.id] ? 'on' : ''}" title="${g.name}"></i>`).join('')}`;
+document.getElementById('hero').href = link('range/');
+if (played.range) document.getElementById('heroDone').textContent = `✓ Last run: ${played.range.line}`;
+
+document.getElementById('grid').innerHTML = GAMES.filter((g) => g.id !== 'range').map((g, i) => `
+  <a class="card rise" style="animation-delay:${60 * i}ms" href="${link(g.href)}" data-topics="${g.topics.join(' ')}">
+    ${played[g.id] ? '<span class="tick">✓ Played</span>' : ''}
+    <span class="ico">${g.ico}</span>
+    <div><h3>${g.name}</h3><p>${g.line}</p></div>
+    <div class="tags">${g.tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>
+    <div class="learn"><b>You'll learn:</b> ${g.learn}</div>
+    ${played[g.id] ? `<div class="last">Last run: ${esc(played[g.id].line)}</div>` : ''}
+  </a>`).join('');
+
+const fbox = document.getElementById('filters');
+fbox.insertAdjacentHTML('beforeend', FILTERS.map(([id, label]) => `<button class="chip${id === 'all' ? ' on' : ''}" data-f="${id}">${label}</button>`).join(''));
+fbox.addEventListener('click', (e) => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  fbox.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b));
+  const f = b.dataset.f;
+  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('dim', f !== 'all' && !c.dataset.topics.split(' ').includes(f)));
+  document.getElementById('hero').classList.toggle('dim', f !== 'all' && !GAMES[0].topics.includes(f));
+});
+</script>
 </body>
 </html>
