@@ -4,6 +4,7 @@ Two submissions, one repo.
 
 | | Live (no login) | Walkthrough |
 |---|---|---|
+| **PS1 — Game dashboard** (pick any of the 5 games) | https://steer-play.duckdns.org/ | — |
 | **PS1 — Myth Smash** (playable ad) | https://steer-play.duckdns.org/smash/ · GitHub Pages copy: https://addyb0t.github.io/steer-hackathon/ps1-playable/smash/ | https://www.loom.com/share/918b27ef3e4d4d0fa7cabb8cce6b82a4 |
 | **PS1 — Myth Range** (3D version, Three.js) | https://steer-play.duckdns.org/range/ · GitHub Pages copy: https://addyb0t.github.io/steer-hackathon/ps1-playable/range/ | — |
 | **PS2 — Receipts** (paper to Instagram) | https://steer-posts.duckdns.org/ | https://www.loom.com/share/3e3cb0d8b1964857bf5d61271d735b4a |
