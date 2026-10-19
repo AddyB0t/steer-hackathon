@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Myth Range · steer</title>
 <link rel="stylesheet" href="../shared/steer.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%23661414%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-size=%2718%27 font-family=%27Georgia%27 text-anchor=%27middle%27 fill=%27%23f5ebdf%27%3Es%3C/text%3E%3C/svg%3E">
 <style>
   .stage { max-width: none; background: #1d0a0a; user-select: none; -webkit-user-select: none; }
   .stage > .screen { padding-left: max(24px, calc(50% - 196px)); padding-right: max(24px, calc(50% - 196px)); }
@@ -130,6 +131,7 @@
   <button class="tbtn hidden" id="viewBtn" aria-label="Switch camera">TPP</button>
 
   <div class="menu" id="menu">
+    <a class="home" href="../" style="color:var(--cream)">← All games</a>
     <div class="inner">
       <div class="brand" style="color:var(--cream)">steer</div>
       <div class="eyebrow" style="margin-top:20px;color:#f7c56b" id="menuEyebrow">Heard it on the family WhatsApp?</div>
@@ -1214,7 +1216,7 @@ const CHARS = [
   { id: 'steer', name: 'Steer Runner', ico: '🧢', make: async () => buildRig('steer') },
   { id: 'fighter', name: 'Kenji', ico: '🥋', make: async () => buildRig('fighter'), credit: 'Kenji is an original character, made in code for this game.' },
   { id: 'robot', name: 'Robo', ico: '🤖', make: buildRobot, credit: 'Robot model by Tomás Laulhé (Quaternius), CC0.' },
-  { id: 'anime', name: 'Vita', ico: '🌸', make: buildVRM, file: 'models/anime.vrm', credit: 'Vita: VRoid sample model by pixiv Inc., CC0.' },
+  { id: 'anime', name: 'Vita', ico: '🌸', make: buildVRM, file: 'models/anime.vrm', soon: true, credit: 'Vita: VRoid sample model by pixiv Inc., CC0.' },
 ];
 const avatars = {};
 let avatar = null;
@@ -1560,6 +1562,7 @@ function report() {
 $('replay').onclick = start;
 const pick = $('charpick');
 for (const c of CHARS) {
+  if (c.soon) continue;
   if (c.file) {
     const ok = await fetch(c.file, { method: 'HEAD' }).then((r) => r.ok).catch(() => false);
     if (!ok) continue;

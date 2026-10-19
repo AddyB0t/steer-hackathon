@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hunger Tug-of-War · steer</title>
 <link rel="stylesheet" href="../shared/steer.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%23661414%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-size=%2718%27 font-family=%27Georgia%27 text-anchor=%27middle%27 fill=%27%23f5ebdf%27%3Es%3C/text%3E%3C/svg%3E">
 <style>
   #arena { background: linear-gradient(#f5ebdf 0 58%, #e9d6c4 58%); touch-action: manipulation; }
   .teams { position: absolute; left: 0; right: 0; top: 40%; height: 120px; }
@@ -30,6 +31,7 @@
 <body>
 <main class="stage" id="stage">
   <section class="screen center dark" id="hook">
+    <a class="home" href="../">← All games</a>
     <div class="brand">steer</div>
     <div class="spacer"></div>
     <div class="eyebrow">Lost weight. Got it back.</div>
@@ -196,7 +198,7 @@ function finish() {
 }
 
 $('tap').addEventListener('pointerdown', (e) => { e.preventDefault(); pull(e); });
-addEventListener('keydown', (e) => { if (e.code === 'Space') pull({}); });
+addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); pull({}); } });
 $('play').onclick = () => { r = 0; results = []; startRound(); };
 </script>
 </body>

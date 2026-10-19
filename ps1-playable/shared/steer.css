@@ -36,6 +36,8 @@ body { display: flex; justify-content: center; overscroll-behavior: none; }
 
 .brand { font-family: var(--logo); font-size: 22px; color: var(--rust); }
 .dark .brand { color: var(--cream); }
+.home { position: absolute; top: 24px; right: 20px; z-index: 11; padding: 5px 12px; border-radius: 999px; border: 1px solid currentColor; font: 600 12.5px var(--sans); color: var(--clay); text-decoration: none; opacity: 0.85; pointer-events: auto; }
+.dark .home { color: var(--cream); }
 .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); font-weight: 600; }
 .dark .eyebrow { color: var(--blush); }
 

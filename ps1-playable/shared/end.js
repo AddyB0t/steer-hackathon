@@ -18,6 +18,9 @@ const FOOD = [
   { id: 'nonveg', label: 'Non-veg', protein: 'eggs, chicken, fish, dal, curd' },
 ];
 
+const HOME = `../${location.search}`;
+document.querySelectorAll('a.home').forEach((a) => (a.href = HOME));
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 export function factHtml(key, delay = 0) {
@@ -29,7 +32,7 @@ function screen(stage, html, cls = '') {
   stage.querySelectorAll('.end-screen').forEach((s) => s.remove());
   const el = document.createElement('section');
   el.className = `screen end-screen ${cls}`;
-  el.innerHTML = html;
+  el.innerHTML = `<a class="home" href="${HOME}">← All games</a>${html}`;
   stage.appendChild(el);
   el.scrollTop = 0;
   return el;
@@ -89,8 +92,11 @@ export function showEnd(stage, { game, result, onReplay, doubts: preset = [], sk
         ${FOOD.map((f) => `<button class="chip" data-id="${f.id}">${esc(f.label)}</button>`).join('')}
       </div>
       <div class="spacer"></div>
-      <button class="btn" data-next disabled style="margin-top:20px">Show my readout</button>`);
+      <button class="btn" data-next disabled style="margin-top:20px">Show my readout</button>
+      ${skipLessons ? '<button class="btn ghost" data-replay style="margin-top:10px">Play again</button>' : ''}`);
     const next = el.querySelector('[data-next]');
+    const again = el.querySelector('[data-replay]');
+    if (again) again.onclick = () => { el.remove(); onReplay(); };
     const sync = () => (next.disabled = !(lead.doubts.length && lead.food));
     el.querySelectorAll('[data-doubts] .chip').forEach((c) =>
       (c.onclick = () => {
@@ -184,7 +190,7 @@ export function showEnd(stage, { game, result, onReplay, doubts: preset = [], sk
         <p class="muted small" style="margin-top:10px">So the first call is about your health, not the basics.</p>
       </div>
       <div class="spacer"></div>
-      <a class="btn ghost" href="../" style="margin-top:20px;text-decoration:none">Try another game</a>`);
+      <a class="btn ghost" href="${HOME}" style="margin-top:20px;text-decoration:none">Try another game</a>`);
   };
 
   skipLessons ? doubts() : lessons();
