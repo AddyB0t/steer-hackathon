@@ -65,6 +65,11 @@
   #fireBtn { right: 18px; bottom: 34px; width: 92px; height: 92px; font-size: 30px; }
   #jumpBtn { right: 124px; bottom: 30px; width: 56px; height: 56px; }
   #reloadBtn { right: 124px; bottom: 98px; width: 50px; height: 50px; font-size: 18px; }
+  #viewBtn { right: 14px; top: 58px; width: 50px; height: 50px; font-size: 11px; }
+  .viewpick { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .viewpick span { font: 700 12px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--blush); margin-right: 4px; }
+  .vchip { font: 600 14px var(--sans); padding: 9px 14px; border-radius: 999px; border: 1px solid rgba(247,197,107,0.45); background: transparent; color: var(--cream); cursor: pointer; }
+  .vchip.on { background: #f7c56b; color: #1d0a0a; border-color: #f7c56b; }
   .joy { position: absolute; z-index: 8; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(247,197,107,0.5); background: rgba(29,10,10,0.3); pointer-events: none; opacity: 0.55; left: 84px; bottom: 24px; top: auto; }
   .joy.on { opacity: 1; bottom: auto; }
   .joy i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(247,197,107,0.75); }
@@ -114,6 +119,7 @@
   <button class="tbtn hidden" id="reloadBtn" aria-label="Reload">↻</button>
   <button class="tbtn hidden" id="jumpBtn" aria-label="Jump">JUMP</button>
   <button class="tbtn hidden" id="fireBtn" aria-label="Fire">🔥</button>
+  <button class="tbtn hidden" id="viewBtn" aria-label="Switch camera">TPP</button>
 
   <div class="menu" id="menu">
     <div class="inner">
@@ -121,6 +127,7 @@
       <div class="eyebrow" style="margin-top:20px;color:#f7c56b" id="menuEyebrow">Heard it on the family WhatsApp?</div>
       <h1 class="pop" style="margin-top:8px;color:var(--cream)" id="menuTitle">Shoot the <em style="color:#f7c56b">myths.</em><br>Spare the facts.</h1>
       <p style="margin-top:10px;color:var(--blush);font-size:14px" id="menuSub">Walk the yard. Cardboard boards pop up all over the map. Shoot the myths, leave the facts standing. 90 seconds · 3 lives · every board backed by a study.</p>
+      <div class="viewpick"><span>Camera</span><button class="vchip" data-view="fpp">👁 First person</button><button class="vchip" data-view="tpp">🧍 Third person</button></div>
       <div class="keys" id="keys"></div>
       <button class="btn" id="go">Start</button>
       <p class="disclaimer" style="color:var(--blush)">Targets are cardboard boards, never people. A game, not a medical test.</p>
@@ -451,7 +458,84 @@ flashSprite.scale.set(0.22, 0.22, 1);
 muzzle.add(flashSprite);
 const flashLight = new THREE.PointLight(0xffc27a, 0, 5, 2);
 muzzle.add(flashLight);
+muzzle.name = 'muzzle';
+const heroGun = gunModel.clone(true);
 gun.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.renderOrder = 2; } });
+
+// ---------- the player character (third person) ----------
+const hero = new THREE.Group();
+scene.add(hero);
+const skin = std({ color: 0x9a6a4a, roughness: 0.7 });
+const hoodie = std({ color: 0x7a1c18, roughness: 0.8 });
+const pants = std({ color: 0x23202a, roughness: 0.85 });
+const shoe = std({ color: 0xf2ebe1, roughness: 0.6 });
+function limb(parent, a, b, r, mat) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+  const len = A.distanceTo(B);
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.01, len - r * 2 + r), 4, 10), mat);
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+  parent.add(m);
+  return m;
+}
+const legs = [-1, 1].map((s) => {
+  const hip = new THREE.Group();
+  hip.position.set(s * 0.11, 0.92, 0);
+  const knee = new THREE.Group();
+  knee.position.y = -0.45;
+  limb(hip, [0, 0, 0], [0, -0.45, 0], 0.075, pants);
+  limb(knee, [0, 0, 0], [0, -0.42, 0], 0.065, pants);
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.26), shoe);
+  foot.position.set(0, -0.44, -0.05);
+  knee.add(foot);
+  hip.add(knee);
+  hero.add(hip);
+  return { hip, knee };
+});
+const body = new THREE.Group();
+body.position.y = 0.92;
+hero.add(body);
+const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.32, 6, 14), hoodie);
+torso.scale.set(1.15, 1, 0.72);
+torso.position.y = 0.3;
+body.add(torso);
+const backTex = canvasTex(256, 96, (g, w, h) => {
+  g.fillStyle = '#7a1c18'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#f7c56b'; g.font = '64px Gelasio, Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('steer', w / 2, h / 2);
+});
+const backPrint = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.1), std({ map: backTex, roughness: 0.8 }));
+backPrint.position.set(0, 0.4, 0.128);
+body.add(backPrint);
+const head = new THREE.Group();
+head.position.y = 0.7;
+body.add(head);
+head.add(new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 14), skin));
+const cap = new THREE.Mesh(new THREE.SphereGeometry(0.122, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), std({ color: GOLD, roughness: 0.5 }));
+cap.position.y = 0.015;
+head.add(cap);
+const brim = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.015, 0.12), std({ color: GOLD, roughness: 0.5 }));
+brim.position.set(0, 0.02, -0.14);
+head.add(brim);
+limb(body, [0, 0.55, 0], [0, 0.66, 0], 0.05, skin);
+const upper = new THREE.Group();
+upper.position.y = 0.46;
+body.add(upper);
+limb(upper, [0.2, 0, 0], [0.19, -0.2, -0.14], 0.06, hoodie);
+limb(upper, [0.19, -0.2, -0.14], [0.08, -0.14, -0.34], 0.05, hoodie);
+limb(upper, [-0.2, 0, 0], [-0.13, -0.18, -0.24], 0.06, hoodie);
+limb(upper, [-0.13, -0.18, -0.24], [0.04, -0.1, -0.52], 0.05, hoodie);
+for (const [x, y, z] of [[0.08, -0.14, -0.36], [0.04, -0.1, -0.54]]) {
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skin);
+  hand.position.set(x, y, z);
+  upper.add(hand);
+}
+heroGun.rotation.set(0, 0, 0);
+heroGun.position.set(0.06, -0.06, -0.3);
+upper.add(heroGun);
+const heroMuzzle = heroGun.getObjectByName('muzzle');
+const heroFlashLight = heroMuzzle.children.find((c) => c.isPointLight);
+hero.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
 
 // ---------- particles, tracers, decals ----------
 const PMAX = 600;
@@ -565,7 +649,7 @@ let W = 1, H = 1;
 const CENTER = new THREE.Vector2(0, 0);
 const ray = new THREE.Raycaster();
 const look = { yaw: 0, pitch: 0, kick: 0, shake: 0 };
-const P = { x: SPAWN.x, z: SPAWN.z, y: 0, vx: 0, vz: 0, vy: 0, bob: 0, steps: 0 };
+const P = { x: SPAWN.x, z: SPAWN.z, y: 0, vx: 0, vz: 0, vy: 0, bob: 0, steps: 0, headBob: 0 };
 const keys = {};
 const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
 let lookTouch = null, holding = false, locked = false, paused = false;
@@ -690,7 +774,7 @@ function fire() {
 
   const h = aimHit();
   const end = h.k ? h.point : h.env ? h.env.point : ray.ray.at(60, new THREE.Vector3());
-  muzzle.getWorldPosition(tmp);
+  (tpp ? heroMuzzle : muzzle).getWorldPosition(tmp);
   const tr = new THREE.Mesh(tracerGeo, new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   tr.position.copy(tmp);
   const dir = end.clone().sub(tmp);
@@ -832,7 +916,7 @@ function move(dt) {
     if (s !== P.steps) { P.steps = s; sfx('step', sprint ? 1 : 0.7); }
   }
   const amp = Math.min(1, sp / 4.4);
-  camera.position.set(P.x, EYE + P.y + Math.abs(Math.sin(P.bob)) * 0.05 * amp, P.z);
+  P.headBob = Math.abs(Math.sin(P.bob)) * 0.05 * amp;
   if (S.intro && Math.hypot(P.x - SPAWN.x, P.z - SPAWN.z) > 4) startClock();
   return amp;
 }
@@ -914,6 +998,50 @@ function radar() {
   rc.beginPath(); rc.moveTo(c, c - 10); rc.lineTo(c + 7, c + 8); rc.lineTo(c, c + 4); rc.lineTo(c - 7, c + 8); rc.closePath(); rc.fill();
 }
 
+let tpp = false;
+try { tpp = localStorage.getItem('steer-range-view') === 'tpp'; } catch { /* no storage */ }
+const TPP_OFFSET = new THREE.Vector3(0.78, 0.34, 2.6);
+const pivot3 = new THREE.Vector3(), off3 = new THREE.Vector3();
+function placeCamera() {
+  if (!tpp) { camera.position.set(P.x, EYE + P.y + (P.headBob || 0), P.z); return; }
+  pivot3.set(P.x, 1.5 + P.y, P.z);
+  TPP_OFFSET.z = W / H < 0.8 ? 3.3 : 2.6;
+  off3.copy(TPP_OFFSET).applyQuaternion(camera.quaternion);
+  const want = off3.length();
+  ray.set(pivot3, off3.normalize());
+  ray.far = want;
+  const h = ray.intersectObjects(env, false)[0];
+  ray.far = Infinity;
+  const d = h ? Math.max(0.3, h.distance - 0.25) : want;
+  camera.position.copy(pivot3).addScaledVector(off3, d);
+  camera.position.y = Math.max(0.25, camera.position.y);
+  hero.visible = d > 0.9;
+}
+function poseHero(amp) {
+  if (!tpp) return;
+  const s = Math.sin(P.bob) * amp, air = P.y > 0 ? 1 : 0;
+  hero.position.set(P.x, P.y + Math.abs(Math.sin(P.bob)) * 0.035 * amp, P.z);
+  hero.rotation.y = look.yaw;
+  legs[0].hip.rotation.x = s * 0.7 - air * 0.5;
+  legs[1].hip.rotation.x = -s * 0.7 - air * 0.2;
+  legs[0].knee.rotation.x = Math.max(0, -s) * 1.1 + air * 0.9;
+  legs[1].knee.rotation.x = Math.max(0, s) * 1.1 + air * 0.5;
+  body.rotation.x = -0.08 * amp;
+  const rec = gun.userData.recoil || 0;
+  const reloadDip = S.reloading > 0 ? Math.sin(Math.min(1, (0.85 - S.reloading) / 0.85) * Math.PI) : 0;
+  upper.rotation.x = look.pitch + 0.08 * amp + rec * 0.12 - reloadDip * 0.5;
+  head.rotation.x = look.pitch * 0.5;
+  heroGun.position.z = -0.3 + rec * 0.05;
+}
+function setView(third) {
+  tpp = third;
+  try { localStorage.setItem('steer-range-view', tpp ? 'tpp' : 'fpp'); } catch { /* no storage */ }
+  hero.visible = tpp;
+  gunMount.visible = !tpp;
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', (b.dataset.view === 'tpp') === tpp));
+  $('viewBtn').textContent = tpp ? 'FPP' : 'TPP';
+}
+
 function fx(dt, amp) {
   for (const s of shards) {
     s.v.y -= 9.8 * dt;
@@ -951,11 +1079,14 @@ function fx(dt, amp) {
 
   flashMat.opacity = Math.max(0, flashMat.opacity - dt * 22);
   flashLight.intensity = Math.max(0, flashLight.intensity - dt * 150);
+  heroFlashLight.intensity = flashLight.intensity;
 
   look.kick = Math.max(0, look.kick - dt * 0.25);
   look.shake = Math.max(0, look.shake - dt);
   const sh = look.shake * 0.05;
   camera.rotation.set(look.pitch + look.kick + (Math.random() - 0.5) * sh, look.yaw + (Math.random() - 0.5) * sh, 0);
+  placeCamera();
+  poseHero(amp);
 
   camera.updateMatrixWorld();
   ray.setFromCamera(CENTER, camera);
@@ -988,7 +1119,7 @@ function loop(ts) {
     if (holding) fire();
   } else if (!S.running) {
     look.yaw = Math.sin(ts / 4000) * 0.25;
-    camera.position.set(P.x, EYE, P.z);
+    P.headBob = 0;
   }
   fx(dt, amp);
   if (S.running) { scope(); if (!S.intro) radar(); }
@@ -1076,24 +1207,27 @@ const press = (id, down, up) => {
 press('fireBtn', () => { holding = true; fire(); }, () => { holding = false; });
 press('reloadBtn', reload);
 press('jumpBtn', () => { keys.jump = true; });
+press('viewBtn', () => setView(!tpp));
+document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => setView(b.dataset.view === 'tpp')));
 
 addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && S.running) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'KeyR') reload();
+  if (e.code === 'KeyV' && !e.repeat) setView(!tpp);
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; holding = false; });
 
 // ---------- menu, pause, start ----------
 $('keys').innerHTML = TOUCH
-  ? '<kbd>Left thumb</kbd><span>Drag to walk (push far to run)</span><kbd>Right thumb</kbd><span>Drag to look around</span><kbd>🔥</kbd><span>Hold to shoot</span><kbd>Radar</kbd><span>Gold dots = boards to find</span>'
-  : '<kbd>W A S D</kbd><span>Walk</span><kbd>Mouse</kbd><span>Look and aim</span><kbd>Click</kbd><span>Shoot (hold for auto)</span><kbd>Shift</kbd><span>Run</span><kbd>Space</kbd><span>Jump</span><kbd>R</kbd><span>Reload</span><kbd>Radar</kbd><span>Gold dots = boards to find</span>';
+  ? '<kbd>Left thumb</kbd><span>Drag to walk (push far to run)</span><kbd>Right thumb</kbd><span>Drag to look around</span><kbd>🔥</kbd><span>Hold to shoot</span><kbd>TPP</kbd><span>Switch first / third person</span><kbd>Radar</kbd><span>Gold dots = boards to find</span>'
+  : '<kbd>W A S D</kbd><span>Walk</span><kbd>Mouse</kbd><span>Look and aim</span><kbd>Click</kbd><span>Shoot (hold for auto)</span><kbd>Shift</kbd><span>Run</span><kbd>Space</kbd><span>Jump</span><kbd>R</kbd><span>Reload</span><kbd>V</kbd><span>Switch first / third person</span><kbd>Radar</kbd><span>Gold dots = boards to find</span>';
 
 function setPlaying(on) {
   stage.classList.toggle('playing', on && !TOUCH);
   ['hud', 'ammo', 'cross'].forEach((id) => $(id).classList.toggle('hidden', !on));
-  ['joy', 'fireBtn', 'reloadBtn', 'jumpBtn'].forEach((id) => $(id).classList.toggle('hidden', !on || !TOUCH));
+  ['joy', 'fireBtn', 'reloadBtn', 'jumpBtn', 'viewBtn'].forEach((id) => $(id).classList.toggle('hidden', !on || !TOUCH));
 }
 function pause() {
   paused = true; holding = false;
@@ -1214,6 +1348,7 @@ function report() {
 }
 
 $('replay').onclick = start;
+setView(tpp);
 start();
 </script>
 </body>
