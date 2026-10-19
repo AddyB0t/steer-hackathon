@@ -14,7 +14,7 @@
 
 https://steer-play.duckdns.org/range/
 
-The same cards, doubt report and doctor handoff as Myth Smash, played as a first-person 3D range. Myth and fact boards pop up on two lanes; tap a board to fire. Myths shatter, facts cost a life. 10-round magazine with auto-reload, streak multiplier, accuracy on the report. The targets are cardboard boards, never people.
+The same cards, doubt report and doctor handoff as Myth Smash, played as a first-person 3D shooter on a walkable map (a sunset training yard with buildings, cover walls and crates). Myth and fact boards pop up around the map; a radar shows where they are. Desktop: WASD, mouse look (pointer lock), click to shoot, Shift to run, Space to jump, R to reload. Phone: left-thumb joystick, right-thumb look, fire button with light aim assist. Myths shatter, facts cost a life. 90 seconds, 12-round magazine, streak multiplier, accuracy on the report. The targets are cardboard boards, never people.
 
 - Built with [Three.js](https://threejs.org) r170 (MIT), loaded from the jsDelivr CDN. Every model, texture and sound is made in code: no downloaded assets.
 - Needs WebGL. If WebGL is missing, the page links to Myth Smash instead.
