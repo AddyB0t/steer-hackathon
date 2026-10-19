@@ -10,6 +10,15 @@
 - **Value:** 45 seconds of slash-the-myth, spare-the-fact. Every card maps to one of the 5 doubts in the brief (Is it safe? Will I lose muscle? Will the weight come back? Is it only for diabetics? Is it for me?). It ends with a doubt report: each doubt is "Cleared" or "Worth a chat", and every card opens its study.
 - **Next step:** "Talk to a Steer doctor". The doubts the player got wrong are pre-picked, so the lead arrives warm: worries, food type (veg, egg or non-veg) and which myths they believed.
 
+## Myth Range (3D)
+
+https://steer-play.duckdns.org/range/
+
+The same cards, doubt report and doctor handoff as Myth Smash, played as a first-person 3D range. Myth and fact boards pop up on two lanes; tap a board to fire. Myths shatter, facts cost a life. 10-round magazine with auto-reload, streak multiplier, accuracy on the report. The targets are cardboard boards, never people.
+
+- Built with [Three.js](https://threejs.org) r170 (MIT), loaded from the jsDelivr CDN. Every model, texture and sound is made in code: no downloaded assets.
+- Needs WebGL. If WebGL is missing, the page links to Myth Smash instead.
+
 ## Target device and browser
 
 - Mobile first: tested at 390 × 844 (iPhone 12–15 size) in Chromium mobile emulation. Works on desktop too, in a centred phone-width frame.
@@ -22,6 +31,7 @@
 |---|---|
 | Myth Smash game, report, doctor handoff | Done, tested end to end |
 | Lead capture (`POST /api/leads` to `leads.jsonl`) | Done on the live server. Demo mode on GitHub Pages |
+| Myth Range (3D first-person version of Myth Smash, Three.js) | Done: https://steer-play.duckdns.org/range/ |
 | Build Your Thali (bonus game: lunch to 4 pm hunger sim, 3 levels) | Done: https://steer-play.duckdns.org/thali/ |
 | Shaadi Buffet, Hunger Tug (early prototypes) | Prototypes only, not part of the submission |
 | Real Meta deployment | Not done (optional in the brief) |
@@ -44,7 +54,9 @@ Node 18+. No dependencies.
 ## Files
 
 - `smash/index.html` — Myth Smash
+- `range/index.html` — Myth Range (3D)
 - `thali/index.html` — Build Your Thali
+- `shared/claims.js` — the myth/fact cards both myth games use
 - `shared/facts.js` — every cited fact
 - `shared/end.js` — shared ending: doubts, readout, lead form, "what your doctor sees"
 - `shared/steer.css` — Steer brand styles
