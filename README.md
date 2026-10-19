@@ -24,7 +24,9 @@ Two submissions, one repo.
 | OpenRouter: `google/gemini-3.1-flash-image` | PS2: AI stills (the creator frames used for the reel, and the slide-1 topic photo on new runs). |
 | Higgsfield: `bytedance/seedance-2.0/image-to-video` | PS2: the AI reel video and voice. The woman in the reel is AI-generated, not a real person. |
 | pdf.js, satori, resvg, ffmpeg (ffmpeg-static) | PS2: reading PDFs, rendering slides, cropping paper quotes, editing the reel. |
-| Three.js r170 (MIT, via jsDelivr CDN) | PS1: the 3D Myth Range game. All models, textures and sounds are made in code. |
+| Three.js r170 (MIT, via jsDelivr CDN) | PS1: the 3D Myth Range game. The map, boards, blaster, textures, sounds and the Steer Runner and Kenji characters are made in code (Kenji is an original character). |
+| "RobotExpressive" model by Tomás Laulhé (Quaternius), CC0, from the three.js examples | PS1: the "Robo" character in Myth Range (`ps1-playable/range/models/RobotExpressive.glb`). |
+| @pixiv/three-vrm 3.5.5 (MIT, via jsDelivr CDN) | PS1: loads VRM anime avatars in Myth Range, used only if a CC0 VRoid sample file is present. |
 | Vite, React, Tailwind, shadcn/ui | PS2 review web app. |
 | Google Fonts / Fontsource: Gelasio, Inter (SIL OFL) | Fonts. |
 | Research papers | All cited inline. PS1: [`ps1-playable/shared/facts.js`](ps1-playable/shared/facts.js). PS2: [`submission/ps2-step1-extension/sources.md`](submission/ps2-step1-extension/sources.md). |
